@@ -1,0 +1,4101 @@
+openapi: 3.1.0
+info:
+  title: Oshel Clinic API
+  version: 2.0.0
+  description: >
+    Organization, identity, customer, clinical, HR/payroll, inventory, procurement,
+    point-of-sale, e-commerce, service, appointment, queue, and marketing APIs.
+    Business endpoints require a verified account, a changed temporary password,
+    and the relevant permission within the user's organization and branch scope.
+servers:
+  - url: http://localhost:8000/api/v1
+security:
+  - bearerAuth: []
+paths:
+  /public/enquiries:
+    post:
+      security: []
+      summary: Submit a public customer enquiry
+      description: Rate-limited intake. Requires explicit permission to contact and an email address or phone number; do not submit clinical information.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [organization_slug, name, subject, contact_consent]
+              properties:
+                organization_slug:
+                  type: string
+                  maxLength: 120
+                branch_id:
+                  type: [integer, 'null']
+                name:
+                  type: string
+                  maxLength: 180
+                email:
+                  type: [string, 'null']
+                  format: email
+                  maxLength: 255
+                phone:
+                  type: [string, 'null']
+                  maxLength: 40
+                subject:
+                  type: string
+                  maxLength: 180
+                message:
+                  type: [string, 'null']
+                  maxLength: 2000
+                contact_consent:
+                  type: boolean
+                  const: true
+                utm_source:
+                  type: [string, 'null']
+                  maxLength: 160
+                utm_medium:
+                  type: [string, 'null']
+                  maxLength: 160
+                utm_campaign:
+                  type: [string, 'null']
+                  maxLength: 160
+                utm_content:
+                  type: [string, 'null']
+                  maxLength: 160
+                utm_term:
+                  type: [string, 'null']
+                  maxLength: 160
+                referrer:
+                  type: [string, 'null']
+                  format: uri
+                  maxLength: 500
+                landing_page:
+                  type: [string, 'null']
+                  maxLength: 500
+      responses:
+        '201':
+          description: Enquiry recorded
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          description: Public enquiry rate limit exceeded
+  /crm/overview:
+    get:
+      summary: Read the CRM workspace overview
+      description: Returns tenant/branch-scoped leads, tasks, campaigns, segments, expenses, team members, and conversion attribution. Requires crm.view.
+      responses:
+        '200':
+          description: CRM overview without clinical records
+          content:
+            application/json:
+              schema:
+                type: object
+  /crm/leads:
+    post:
+      summary: Create a staff-managed CRM lead
+      description: Requires crm.leads.manage and applicable organization/branch scope.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Lead created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /crm/leads/{lead}:
+    patch:
+      summary: Update a CRM lead
+      parameters:
+        - in: path
+          name: lead
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Lead updated
+        '404':
+          description: Lead not found in the actor's organization
+  /crm/leads/{lead}/conversions:
+    post:
+      summary: Link a lead to a completed business conversion
+      description: A conversion must reference an eligible booking, paid online order, or completed POS sale for the same customer.
+      parameters:
+        - in: path
+          name: lead
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Conversion recorded
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /crm/segments:
+    post:
+      summary: Save a consent-aware customer segment
+      description: Supported criteria are limited to branch, lead source, and marketing-consent state; clinical attributes are not available.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Segment saved
+  /crm/segments/{segment}/members:
+    get:
+      summary: List customers matching a saved segment
+      parameters:
+        - in: path
+          name: segment
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Scoped segment members
+  /crm/teams:
+    post:
+      summary: Create a marketing team
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Team created
+  /crm/teams/{team}/members:
+    put:
+      summary: Replace marketing team membership
+      parameters:
+        - in: path
+          name: team
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Team membership updated
+  /crm/tasks:
+    post:
+      summary: Create a branch-scoped CRM task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Task created
+  /crm/tasks/{task}:
+    patch:
+      summary: Update a CRM task
+      parameters:
+        - in: path
+          name: task
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Task updated
+  /crm/campaigns:
+    post:
+      summary: Create a draft marketing campaign
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Draft campaign created
+  /crm/campaigns/{campaign}/submit:
+    post:
+      summary: Submit a campaign for approval
+      parameters:
+        - in: path
+          name: campaign
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Campaign submitted
+  /crm/campaigns/{campaign}/approve:
+    post:
+      summary: Approve a submitted campaign and budget
+      parameters:
+        - in: path
+          name: campaign
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Campaign approved by an independent reviewer
+  /crm/campaigns/{campaign}/status:
+    patch:
+      summary: Update an approved campaign's lifecycle state
+      parameters:
+        - in: path
+          name: campaign
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Campaign status updated
+  /crm/expenses:
+    post:
+      summary: Submit a marketing expense
+      description: Campaign expenses are checked against the approved budget and currency.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Expense submitted for review
+  /crm/expenses/{expense}/review:
+    post:
+      summary: Approve or reject a submitted marketing expense
+      parameters:
+        - in: path
+          name: expense
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Expense decision recorded by an independent reviewer
+  /crm/customers/{customer}/preferences:
+    put:
+      summary: Update a customer's marketing preference
+      parameters:
+        - in: path
+          name: customer
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Preference state and consent history updated
+  /portal/marketing-preferences:
+    get:
+      summary: Read the signed-in customer's marketing preferences
+      description: Returns only the authenticated customer's email, SMS, and WhatsApp marketing preference states.
+      responses:
+        '200':
+          description: Customer-owned marketing preference states
+    put:
+      summary: Update the signed-in customer's marketing preference
+      description: Records an append-only consent event. Opt-in requires a matching email address or phone number on the customer profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [channel, status]
+              properties:
+                channel:
+                  type: string
+                  enum: [email, sms, whatsapp]
+                status:
+                  type: string
+                  enum: [opted_in, opted_out]
+                consent_text_version:
+                  type: [string, 'null']
+                  maxLength: 40
+      responses:
+        '200':
+          description: Customer-owned preference updated
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /marketing/external-campaigns:
+    get:
+      summary: Read branch-scoped external campaign snapshots
+      description: Campaign metrics are manually entered and are not synchronized with provider APIs.
+      responses:
+        '200':
+          description: Manual campaign snapshots and activity logs
+    post:
+      summary: Import an external campaign snapshot manually
+      description: Requires marketing.campaigns.manage. No external provider synchronization is performed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [platform, name, status]
+              properties:
+                branch_id:
+                  type: [integer, 'null']
+                platform:
+                  type: string
+                  enum: [google, meta, tiktok, whatsapp]
+                name:
+                  type: string
+                  maxLength: 180
+                status:
+                  type: string
+                  enum: [externally_managed, paused, ended, sync_pending, sync_failed]
+                spend_amount:
+                  type: [number, 'null']
+                impressions:
+                  type: [integer, 'null']
+                clicks:
+                  type: [integer, 'null']
+                conversions:
+                  type: [integer, 'null']
+      responses:
+        '201':
+          description: Manual snapshot created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /marketing/external-campaigns/{campaign}/metrics:
+    put:
+      summary: Record updated manual campaign metrics
+      description: Requires marketing.campaigns.manage and branch access. Does not synchronize with the provider.
+      parameters:
+        - in: path
+          name: campaign
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                spend_amount:
+                  type: [number, 'null']
+                impressions:
+                  type: [integer, 'null']
+                clicks:
+                  type: [integer, 'null']
+                conversions:
+                  type: [integer, 'null']
+      responses:
+        '200':
+          description: Manual metrics snapshot updated and audited
+        '404':
+          description: Campaign is outside the caller organization
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /analytics/dashboard:
+    get:
+      summary: Read permission-filtered business analytics
+      description: Returns organization/branch-scoped aggregate metrics only for domains the caller is authorized to view. Clinical results contain workflow counts only; no patient, employee, or customer-level records are returned.
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: branch_id
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Aggregated metrics with sources, definitions, date basis, and applicable permission labels
+        '403':
+          description: Analytics permission is required
+        '404':
+          description: Branch is outside the caller scope
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /analytics/export:
+    get:
+      summary: Export authorized analytics as CSV
+      description: Requires analytics.view and analytics.export. The export request is recorded in the audit log.
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: branch_id
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: CSV export containing only authorized aggregate metrics and lineage
+          content:
+            text/csv:
+              schema:
+                type: string
+        '403':
+          description: Analytics export permission is required
+        '404':
+          description: Branch is outside the caller scope
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /auth/login:
+    post:
+      security: []
+      summary: Sign in and issue a bearer token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                device_name:
+                  type: string
+                  maxLength: 100
+      responses:
+        '200':
+          description: Authenticated user and Sanctum token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token_type:
+                    type: string
+                    const: Bearer
+                  access_token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/AuthUser'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /auth/logout:
+    post:
+      summary: Revoke the current bearer token
+      responses:
+        '200':
+          description: Current token revoked
+  /auth/logout-all:
+    post:
+      summary: Revoke all of the current user's bearer tokens
+      responses:
+        '200':
+          description: All tokens revoked
+  /auth/me:
+    get:
+      summary: Get the authenticated user's identity and access scope
+      responses:
+        '200':
+          description: User, roles, permissions, and branch assignments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUser'
+  /auth/sessions:
+    get:
+      summary: List the authenticated user's API sessions
+      responses:
+        '200':
+          description: User-owned personal access tokens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ApiSession'
+  /auth/sessions/{tokenId}:
+    delete:
+      summary: Revoke one of the authenticated user's sessions
+      parameters:
+        - in: path
+          name: tokenId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Session revoked
+  /auth/password/forgot:
+    post:
+      security: []
+      summary: Request password reset instructions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Generic response that does not disclose account existence
+  /auth/password/reset:
+    post:
+      security: []
+      summary: Reset a password using a reset token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, email, password, password_confirmation]
+              properties:
+                token:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                password_confirmation:
+                  type: string
+      responses:
+        '200':
+          description: Password reset and existing API sessions revoked
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /auth/password:
+    put:
+      summary: Change the authenticated user's password
+      responses:
+        '200':
+          description: Password updated and existing API sessions revoked
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /auth/email/verify/{id}/{hash}:
+    get:
+      security: []
+      summary: Verify an email address using a signed link
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: hash
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: expires
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: signature
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Email address verified
+        '403':
+          description: Invalid or expired verification link
+  /auth/email/verification-notification:
+    post:
+      summary: Resend the authenticated user's verification link
+      responses:
+        '200':
+          description: Verification notification sent or address already verified
+  /users:
+    get:
+      summary: List users in the authenticated user's organization
+      responses:
+        '200':
+          description: Paginated organization-scoped users
+    post:
+      summary: Provision a user with roles and branch assignments
+      responses:
+        '201':
+          description: User created and onboarding notifications sent
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /users/{user}:
+    get:
+      summary: Get a same-organization user
+      parameters:
+        - in: path
+          name: user
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User details
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update user profile, status, roles, or branch assignments
+      parameters:
+        - in: path
+          name: user
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User updated
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /roles:
+    get:
+      summary: List configured roles and permissions
+      responses:
+        '200':
+          description: Roles and permissions available to administrators
+  /audit-events:
+    get:
+      summary: Search organization-scoped audit events
+      responses:
+        '200':
+          description: Filtered audit event list
+  /overview:
+    get:
+      summary: Get an organization- or assignment-scoped foundation overview
+      responses:
+        '200':
+          description: Foundation summary; branch-only users receive assigned branch data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organization:
+                    oneOf:
+                      - $ref: '#/components/schemas/Organization'
+                      - type: 'null'
+                  stats:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                  branches:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Branch'
+                  departments:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Department'
+        '403':
+          description: The account lacks organization.view and branch.view permissions
+  /organizations:
+    get:
+      summary: List organizations
+      responses:
+        '200':
+          description: Organization list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Organization'
+    post:
+      summary: Create an organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationInput'
+      responses:
+        '201':
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /organizations/{organization}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      summary: Get an organization
+      responses:
+        '200':
+          description: Organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update an organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationInput'
+      responses:
+        '200':
+          description: Organization updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      summary: Soft-delete an organization with no active children or assigned users
+      responses:
+        '204':
+          description: Organization soft-deleted
+        '409':
+          description: Organization still has branches, departments, or assigned users
+  /branches:
+    get:
+      summary: List branches
+      parameters:
+        - in: query
+          name: organization_id
+          schema:
+            type: integer
+        - in: query
+          name: is_active
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Branch list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Branch'
+    post:
+      summary: Create a branch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchInput'
+      responses:
+        '201':
+          description: Branch created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /branches/{branch}:
+    parameters:
+      - $ref: '#/components/parameters/BranchId'
+    get:
+      summary: Get a branch
+      responses:
+        '200':
+          description: Branch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update a branch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BranchInput'
+      responses:
+        '200':
+          description: Branch updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Branch'
+        '409':
+          description: Branch cannot be moved while it has assigned departments or users
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      summary: Soft-delete a branch without assigned departments or users
+      responses:
+        '204':
+          description: Branch soft-deleted
+        '409':
+          description: Branch still has assigned departments or users
+  /departments:
+    get:
+      summary: List departments
+      parameters:
+        - in: query
+          name: organization_id
+          schema:
+            type: integer
+        - in: query
+          name: branch_id
+          schema:
+            oneOf:
+              - type: integer
+              - type: 'null'
+        - in: query
+          name: is_active
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Department list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Department'
+    post:
+      summary: Create a department
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentInput'
+      responses:
+        '201':
+          description: Department created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /departments/{department}:
+    parameters:
+      - $ref: '#/components/parameters/DepartmentId'
+    get:
+      summary: Get a department
+      responses:
+        '200':
+          description: Department
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update a department
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DepartmentInput'
+      responses:
+        '200':
+          description: Department updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Department'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      summary: Soft-delete a department
+      responses:
+        '204':
+          description: Department soft-deleted
+  /customers:
+    get:
+      summary: Search customers in the caller's organization and branch scope
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+            maxLength: 120
+      responses:
+        '200':
+          description: Paginated customer identities; patient fields are permission filtered
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+    post:
+      summary: Register a customer, optionally with a patient profile or portal account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: [string, 'null']
+                  format: email
+                phone:
+                  type: [string, 'null']
+                preferred_channel:
+                  type: string
+                  enum: [email, sms, phone, whatsapp, none]
+                registration_source:
+                  type: string
+                  enum: [walk_in, referral, website, phone, other]
+                branch_id:
+                  type: [integer, 'null']
+                is_patient:
+                  type: boolean
+                patient:
+                  type: object
+                  additionalProperties: true
+                activate_portal:
+                  type: boolean
+      responses:
+        '201':
+          description: Customer registered
+        '409':
+          description: Possible duplicate; includes duplicate_customer for review
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /customers/{customer}:
+    parameters:
+      - $ref: '#/components/parameters/CustomerId'
+    get:
+      summary: Get a customer and authorized history/consents
+      responses:
+        '200':
+          description: Customer profile
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      summary: Update customer contact details
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Updated customer
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /customers/{customer}/branch-history:
+    post:
+      summary: Record a customer visit at an authorized branch
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [branch_id]
+              properties:
+                branch_id:
+                  type: integer
+                occurred_at:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Branch visit recorded
+  /customers/{customer}/consents:
+    post:
+      summary: Capture a consent record and optional private document
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [consent_type, status, capture_method]
+              properties:
+                consent_type:
+                  type: string
+                  enum: [privacy_notice, treatment, marketing, clinical_photography]
+                status:
+                  type: string
+                  enum: [granted, declined, revoked]
+                capture_method:
+                  type: string
+                  enum: [signed_form, verbal, electronic, other]
+                branch_id:
+                  type: integer
+                document:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Consent captured
+  /customers/{customer}/consents/{consent}/document:
+    get:
+      summary: Download a private consent document with consent-view permission
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+        - $ref: '#/components/parameters/ConsentId'
+      responses:
+        '200':
+          description: Private consent document
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+  /customers/{customer}/patient-profile:
+    get:
+      summary: Read a patient profile with patient-view permission
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Patient profile
+    put:
+      summary: Update a patient profile with patient-manage permission
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Updated patient profile
+  /customers/{customer}/merge:
+    post:
+      summary: Merge another customer identity into this target
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_customer_id, reason]
+              properties:
+                source_customer_id:
+                  type: integer
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Customer profiles merged and audited
+  /customers/{customer}/portal-activation:
+    post:
+      summary: Activate a portal account for a customer
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Portal account activated
+  /portal/profile:
+    get:
+      summary: Get the authenticated portal user's own contact profile
+      responses:
+        '200':
+          description: Customer contact profile
+    patch:
+      summary: Update own portal contact preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone:
+                  type: [string, 'null']
+                preferred_channel:
+                  type: string
+                  enum: [email, sms, phone, whatsapp, none]
+      responses:
+        '200':
+          description: Updated contact preferences
+  /public/services:
+    get:
+      security: []
+      summary: List public services offered at a branch
+      parameters:
+        - in: query
+          name: branch_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Publicly bookable services with branch prices and policies
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /public/availability:
+    get:
+      security: []
+      summary: List public appointment slots for a service and date
+      parameters:
+        - in: query
+          name: branch_id
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: service_id
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Public slots with available required resources
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /services:
+    get:
+      summary: List active services within the caller's organization and branch scope
+      responses:
+        '200':
+          description: Service catalogue with active branch pricing and availability
+        '403':
+          description: The caller lacks services.view
+    post:
+      summary: Create a service in the caller's organization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, classification, duration_minutes]
+              properties:
+                category_id:
+                  type: [integer, 'null']
+                name:
+                  type: string
+                description:
+                  type: [string, 'null']
+                classification:
+                  type: string
+                  enum: [beauty, clinical, aesthetic, spa, other]
+                duration_minutes:
+                  type: integer
+                  minimum: 5
+                  maximum: 600
+                buffer_minutes:
+                  type: integer
+                required_qualifications:
+                  type: array
+                  items:
+                    type: string
+                required_resource_types:
+                  type: array
+                  items:
+                    type: string
+                    enum: [room, equipment]
+      responses:
+        '201':
+          description: Service created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /service-categories:
+    post:
+      summary: Create an organization-scoped service category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                description:
+                  type: [string, 'null']
+      responses:
+        '201':
+          description: Category created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /services/{service}/branches:
+    put:
+      summary: Configure branch pricing and booking policies for a service
+      parameters:
+        - in: path
+          name: service
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [branch_id, price, currency_code, deposit_policy]
+              properties:
+                branch_id:
+                  type: integer
+                price:
+                  type: number
+                currency_code:
+                  type: string
+                  minLength: 3
+                  maxLength: 3
+                is_available:
+                  type: boolean
+                is_public:
+                  type: boolean
+                deposit_policy:
+                  type: string
+                  enum: [pay_at_clinic, fixed, full]
+                deposit_amount:
+                  type: number
+                booking_lead_hours:
+                  type: integer
+                cancellation_notice_hours:
+                  type: integer
+      responses:
+        '200':
+          description: Branch service configuration saved
+        '403':
+          description: The caller lacks branch access or services.manage
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /branch-business-hours:
+    get:
+      summary: Get business hours for an authorized branch
+      parameters:
+        - in: query
+          name: branch_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Weekly business-hour records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, branch_id, day_of_week, is_closed]
+                  properties:
+                    id:
+                      type: integer
+                    branch_id:
+                      type: integer
+                    day_of_week:
+                      type: integer
+                      minimum: 0
+                      maximum: 6
+                    is_closed:
+                      type: boolean
+                    opens_at:
+                      type: [string, 'null']
+                      format: time
+                    closes_at:
+                      type: [string, 'null']
+                      format: time
+        '403':
+          description: The caller lacks branch access or schedules.manage
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    put:
+      summary: Replace business hours for a branch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [branch_id, hours]
+              properties:
+                branch_id:
+                  type: integer
+                hours:
+                  type: array
+                  minItems: 7
+                  maxItems: 7
+                  items:
+                    type: object
+                    required: [day_of_week, is_closed]
+                    properties:
+                      day_of_week:
+                        type: integer
+                        minimum: 0
+                        maximum: 6
+                      is_closed:
+                        type: boolean
+                      opens_at:
+                        type: [string, 'null']
+                        format: time
+                      closes_at:
+                        type: [string, 'null']
+                        format: time
+      responses:
+        '200':
+          description: Seven business-hour records saved
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /booking-resources:
+    get:
+      summary: List staff, room, and equipment resources in the caller's scope
+      responses:
+        '200':
+          description: Booking resources and their schedules
+    post:
+      summary: Create a branch booking resource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [branch_id, name, resource_type]
+              properties:
+                branch_id:
+                  type: integer
+                user_id:
+                  type: [integer, 'null']
+                name:
+                  type: string
+                resource_type:
+                  type: string
+                  enum: [staff, room, equipment]
+                qualifications:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Resource created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /booking-resources/{resource}/schedule:
+    put:
+      summary: Replace a booking resource's weekly schedule
+      parameters:
+        - in: path
+          name: resource
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [schedules]
+              properties:
+                schedules:
+                  type: array
+                  minItems: 7
+                  maxItems: 7
+                  items:
+                    type: object
+                    additionalProperties: true
+      responses:
+        '200':
+          description: Weekly resource schedules saved
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /availability:
+    get:
+      summary: List scoped appointment slots for a service and date
+      parameters:
+        - in: query
+          name: branch_id
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: service_id
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Available slots with compatible staff, room, and equipment
+        '403':
+          description: The caller lacks branch access or services.view
+  /appointments:
+    get:
+      summary: List appointments in the caller's organization and branch scope
+      parameters:
+        - in: query
+          name: branch_id
+          schema:
+            type: integer
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated appointment records
+    post:
+      summary: Create a staff-managed appointment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [branch_id, service_id, customer_id, starts_at]
+              properties:
+                branch_id:
+                  type: integer
+                service_id:
+                  type: integer
+                customer_id:
+                  type: integer
+                starts_at:
+                  type: string
+                  format: date-time
+                resource_ids:
+                  type: array
+                  maxItems: 3
+                  items:
+                    type: integer
+                notes:
+                  type: [string, 'null']
+      responses:
+        '201':
+          description: Appointment created after locked availability and resource checks
+        '409':
+          description: The requested slot or resource is no longer available
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /appointments/{appointment}/status:
+    patch:
+      summary: Transition an appointment and update queue state when needed
+      parameters:
+        - in: path
+          name: appointment
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  enum: [cancel, no_show, check_in, start, complete]
+                reason:
+                  type: [string, 'null']
+      responses:
+        '200':
+          description: Appointment status changed
+        '409':
+          description: The transition is not valid for the current status
+  /appointments/{appointment}/deposit:
+    post:
+      summary: Record a pending appointment deposit
+      parameters:
+        - in: path
+          name: appointment
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [paid, waived]
+                reference:
+                  type: [string, 'null']
+      responses:
+        '200':
+          description: Deposit recorded
+        '409':
+          description: No pending deposit exists
+  /appointments/{appointment}/reschedule:
+    post:
+      summary: Reschedule an upcoming staff-managed appointment
+      parameters:
+        - in: path
+          name: appointment
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [starts_at]
+              properties:
+                starts_at:
+                  type: string
+                  format: date-time
+                resource_ids:
+                  type: array
+                  maxItems: 3
+                  items:
+                    type: integer
+      responses:
+        '201':
+          description: Replacement appointment created and linked to the original
+        '409':
+          description: The requested slot is no longer available
+  /queue:
+    get:
+      summary: List today's queue entries for an authorized branch
+      parameters:
+        - in: query
+          name: branch_id
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: date
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Queue entries ordered by position
+  /queue/call-next:
+    post:
+      summary: Call the next waiting appointment into service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [branch_id]
+              properties:
+                branch_id:
+                  type: integer
+      responses:
+        '200':
+          description: Next entry marked in service, or `called: false` when no appointment is waiting
+  /waitlist:
+    get:
+      summary: List waitlist entries in the caller's branch scope
+      responses:
+        '200':
+          description: Paginated waitlist entries
+    post:
+      summary: Add a customer or portal user to a service waitlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [branch_id, service_id]
+              properties:
+                branch_id:
+                  type: integer
+                service_id:
+                  type: integer
+                customer_id:
+                  type: integer
+                preferred_date:
+                  type: [string, 'null']
+                  format: date
+                notes:
+                  type: [string, 'null']
+      responses:
+        '201':
+          description: Waitlist entry created
+  /waitlist/{entry}:
+    patch:
+      summary: Update an active waitlist entry
+      parameters:
+        - in: path
+          name: entry
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [offered, fulfilled, cancelled]
+      responses:
+        '200':
+          description: Waitlist entry updated
+  /portal/appointments:
+    get:
+      summary: List only the authenticated customer's appointments
+      responses:
+        '200':
+          description: Paginated appointments for the linked customer
+    post:
+      summary: Book a public service for the authenticated customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [branch_id, service_id, starts_at]
+              properties:
+                branch_id:
+                  type: integer
+                service_id:
+                  type: integer
+                starts_at:
+                  type: string
+                  format: date-time
+      responses:
+        '201':
+          description: Customer's appointment created
+        '409':
+          description: The selected slot is no longer available
+  /portal/appointments/{appointment}/cancel:
+    patch:
+      summary: Cancel the authenticated customer's own appointment
+      parameters:
+        - in: path
+          name: appointment
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action:
+                  type: string
+                  const: cancel
+      responses:
+        '200':
+          description: Appointment cancelled
+        '422':
+          description: Cancellation is outside the configured notice period
+  /portal/waitlist:
+    post:
+      summary: Add the authenticated customer to a public service waitlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [branch_id, service_id]
+              properties:
+                branch_id:
+                  type: integer
+                service_id:
+                  type: integer
+                preferred_date:
+                  type: [string, 'null']
+                  format: date
+      responses:
+        '201':
+          description: Customer waitlist entry created
+  /clinical/assessment-templates:
+    get:
+      summary: List active assessment templates for the authenticated organization
+      responses:
+        '200':
+          description: Assessment templates available to clinical staff
+    post:
+      summary: Create an organization-scoped clinical assessment template
+      description: Requires clinical.templates.manage.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, fields]
+              properties:
+                name:
+                  type: string
+                  maxLength: 160
+                description:
+                  type: [string, 'null']
+                fields:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    required: [key, label, type]
+                    properties:
+                      key:
+                        type: string
+                      label:
+                        type: string
+                      type:
+                        type: string
+                        enum: [text, number, boolean, select]
+                      required:
+                        type: boolean
+                      options:
+                        type: array
+                        items:
+                          type: string
+      responses:
+        '201':
+          description: Assessment template created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /clinical/branches:
+    get:
+      summary: List active branches available to the clinical user
+      description: Requires clinical.view and returns only the caller's effective organization/branch scope.
+      responses:
+        '200':
+          description: Scoped branch choices for clinical workflows
+  /clinical/patients:
+    get:
+      summary: List patient identities available to the clinical user
+      description: Requires clinical.view. Returns only patient-linked customer IDs and names within effective scope.
+      responses:
+        '200':
+          description: Paginated patient identity list
+        '403':
+          description: Caller lacks clinical.view
+  /clinical/encounters:
+    get:
+      summary: List branch-scoped clinical encounters
+      parameters:
+        - in: query
+          name: customer_id
+          schema:
+            type: integer
+        - in: query
+          name: branch_id
+          schema:
+            type: integer
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [in_progress, completed]
+      responses:
+        '200':
+          description: Paginated clinical encounter summaries
+        '403':
+          description: Caller lacks clinical.view
+    post:
+      summary: Start a clinical encounter
+      description: Requires clinical.manage and a patient profile; records are tenant and branch scoped.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_id, branch_id]
+              properties:
+                customer_id:
+                  type: integer
+                branch_id:
+                  type: integer
+                appointment_id:
+                  type: [integer, 'null']
+                template_id:
+                  type: [integer, 'null']
+                vitals:
+                  type: object
+                assessment:
+                  type: object
+                clinical_note:
+                  type: [string, 'null']
+                treatment_plan:
+                  type: [string, 'null']
+                follow_up_at:
+                  type: [string, 'null']
+                  format: date-time
+                follow_up_notes:
+                  type: [string, 'null']
+      responses:
+        '201':
+          description: Encounter created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /clinical/encounters/{encounter}:
+    parameters:
+      - in: path
+        name: encounter
+        required: true
+        schema:
+          type: integer
+    get:
+      summary: Read a clinical encounter and its amendment history
+      responses:
+        '200':
+          description: Clinical encounter details; access is explicitly audited
+        '404':
+          description: Encounter is outside the caller's organization
+    put:
+      summary: Update an encounter with an audited amendment reason
+      description: Requires clinical.manage and clinical.amend.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 5
+                  maxLength: 500
+                vitals:
+                  type: object
+                assessment:
+                  type: object
+                clinical_note:
+                  type: [string, 'null']
+                treatment_plan:
+                  type: [string, 'null']
+                follow_up_at:
+                  type: [string, 'null']
+                follow_up_notes:
+                  type: [string, 'null']
+      responses:
+        '200':
+          description: Encounter updated and before/after amendment stored
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /clinical/encounters/{encounter}/complete:
+    post:
+      summary: Complete an in-progress encounter
+      description: Requires clinical.manage.
+      responses:
+        '200':
+          description: Encounter completed
+        '409':
+          description: Encounter is not in progress
+  /clinical/workflow-report:
+    get:
+      summary: Get aggregate clinical workflow counts without clinical record content
+      description: Requires clinical.reports.view.
+      parameters:
+        - in: query
+          name: branch_id
+          schema:
+            type: integer
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Encounter totals and due/upcoming follow-up counts
+  /hr/employees:
+    get:
+      summary: List scoped employee profiles
+      description: Requires hr.view. Employee directory data excludes salary information.
+      responses:
+        '200':
+          description: Paginated employee profiles in the caller's effective branch scope
+    post:
+      summary: Create an employee profile
+      description: Requires hr.manage. The linked user must be active staff in the same organization.
+      responses:
+        '201':
+          description: Employee profile created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /hr/employees/{employee}/compensation:
+    put:
+      summary: Add date-effective compensation
+      description: Requires hr.manage and payroll.config.manage; salary access is not exposed through employee listing.
+      parameters:
+        - in: path
+          name: employee
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Compensation history record created
+        '403':
+          description: Caller lacks HR or payroll configuration permission
+  /hr/shifts:
+    get:
+      summary: List scoped shifts
+      responses:
+        '200':
+          description: Paginated shifts
+    post:
+      summary: Create a shift
+      description: Requires hr.manage; overlapping shifts for an employee are rejected.
+      responses:
+        '201':
+          description: Shift created
+        '409':
+          description: Employee has an overlapping shift
+  /hr/attendance:
+    get:
+      summary: List scoped attendance records
+      responses:
+        '200':
+          description: Paginated attendance records
+  /hr/attendance/clock-in:
+    post:
+      summary: Record attendance clock-in
+      description: Requires attendance.manage; duplicate employee/date clock-ins are rejected.
+      responses:
+        '201':
+          description: Attendance record created
+        '409':
+          description: Attendance already exists for the employee and date
+  /hr/attendance/{attendance}/clock-out:
+    post:
+      summary: Record attendance clock-out
+      parameters:
+        - in: path
+          name: attendance
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Attendance record clocked out
+  /hr/leave-requests:
+    get:
+      summary: List scoped leave requests
+      responses:
+        '200':
+          description: Paginated leave requests
+    post:
+      summary: Submit a leave request
+      description: Requires leave.manage.
+      responses:
+        '201':
+          description: Leave request submitted for review
+  /hr/leave-requests/{leave}/decision:
+    patch:
+      summary: Approve or reject a leave request
+      parameters:
+        - in: path
+          name: leave
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Leave request decision recorded
+        '409':
+          description: Leave request is no longer pending
+  /payroll/components:
+    get:
+      summary: List payroll components
+      description: Requires payroll.view and payroll.salary.view.
+      responses:
+        '200':
+          description: Organization payroll components
+    post:
+      summary: Create a payroll component
+      description: Requires payroll.config.manage and payroll.salary.view.
+      responses:
+        '201':
+          description: Payroll component created
+  /payroll/commissions:
+    get:
+      summary: List scoped commissions
+      description: Requires payroll.view and payroll.salary.view.
+      responses:
+        '200':
+          description: Paginated commissions
+    post:
+      summary: Create a pending commission
+      description: Requires payroll.commission.manage; linked appointments must match employee organization and branch.
+      responses:
+        '201':
+          description: Commission created
+  /payroll/commissions/{commission}/approve:
+    post:
+      summary: Approve a pending commission
+      parameters:
+        - in: path
+          name: commission
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Commission approved
+        '409':
+          description: Commission is not pending
+  /payroll/runs:
+    get:
+      summary: List scoped payroll runs
+      description: Requires payroll.view and payroll.salary.view.
+      responses:
+        '200':
+          description: Paginated payroll runs
+    post:
+      summary: Create a draft payroll run
+      description: Requires payroll.runs.manage and payroll.salary.view. Period must cover one complete calendar month; currencies and net pay are validated.
+      responses:
+        '201':
+          description: Payroll draft and line snapshots created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /payroll/runs/{run}:
+    get:
+      summary: Read a payroll run and its line details
+      description: Requires payroll.view and payroll.salary.view.
+      parameters:
+        - in: path
+          name: run
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Payroll run and employee line snapshots
+  /payroll/runs/{run}/approve:
+    post:
+      summary: Approve a draft payroll run
+      description: Requires payroll.approve. The run creator cannot approve their own run.
+      parameters:
+        - in: path
+          name: run
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Payroll run approved
+        '403':
+          description: Creator attempted to approve their own run
+        '409':
+          description: Payroll run is not a draft
+  /payroll/runs/{run}/pay:
+    post:
+      summary: Mark an approved payroll run paid
+      description: Requires payroll.approve and payroll.salary.view.
+      parameters:
+        - in: path
+          name: run
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Payroll run and linked commissions marked paid
+        '409':
+          description: Payroll run is not approved
+  /payroll/runs/{run}/accounting-export:
+    get:
+      summary: Get payroll accounting export preview
+      description: Requires payroll.view and payroll.salary.view. Returns structured data only; no external accounting provider is called.
+      parameters:
+        - in: path
+          name: run
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reconciled payroll export totals and employee lines
+        '409':
+          description: Payroll run is not approved or paid
+  /inventory/overview:
+    get:
+      summary: Read scoped inventory, stock valuation, reorder alerts, batches, transfers, and ledger
+      description: Requires inventory.view. Costing uses moving weighted average; opening balances must be reconciled before production use.
+      responses:
+        '200':
+          description: Inventory dashboard data in the caller's branch scope
+  /inventory/categories:
+    post:
+      summary: Create an organization inventory category
+      description: Requires inventory.manage.
+      responses:
+        '201':
+          description: Category created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /inventory/suppliers:
+    post:
+      summary: Create an organization supplier
+      description: Requires inventory.manage.
+      responses:
+        '201':
+          description: Supplier created
+  /inventory/products:
+    post:
+      summary: Create a product catalogue item
+      description: Requires inventory.manage. Expiry tracking requires batch tracking.
+      responses:
+        '201':
+          description: Product created
+  /inventory/locations:
+    post:
+      summary: Create a stock location within an authorized branch
+      description: Requires inventory.manage.
+      responses:
+        '201':
+          description: Stock location created
+  /inventory/movements:
+    get:
+      summary: List immutable stock movements
+      description: Requires inventory.view; results are organization and branch scoped.
+      responses:
+        '200':
+          description: Paginated stock ledger movements
+  /inventory/adjustments:
+    post:
+      summary: Post a reasoned stock adjustment
+      description: Requires inventory.adjust and inventory.view. Inbound adjustments require unit cost; insufficient stock is rejected.
+      responses:
+        '201':
+          description: Compensating movement posted
+        '409':
+          description: Insufficient stock
+  /inventory/transfers:
+    post:
+      summary: Create a draft transfer between authorized stock locations
+      description: Requires inventory.manage. Locations must be in the same organization.
+      responses:
+        '201':
+          description: Draft stock transfer created
+  /inventory/transfers/{transfer}/dispatch:
+    post:
+      summary: Dispatch stock transfer
+      description: Requires inventory.adjust and inventory.view. Deducts source stock at moving-average cost and places it in transit.
+      parameters:
+        - in: path
+          name: transfer
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Transfer dispatched
+        '409':
+          description: Transfer state or available stock prevents dispatch
+  /inventory/transfers/{transfer}/receive:
+    post:
+      summary: Receive a dispatched stock transfer
+      parameters:
+        - in: path
+          name: transfer
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Destination stock posted at the source moving-average cost
+  /inventory/stocktakes:
+    post:
+      summary: Capture a stocktake count snapshot
+      description: Requires inventory.manage.
+      responses:
+        '201':
+          description: Count snapshot created
+  /inventory/stocktakes/{stocktake}/post:
+    post:
+      summary: Post stocktake differences as compensating ledger movements
+      description: Requires inventory.adjust and inventory.view; the count creator cannot post their own adjustments.
+      parameters:
+        - in: path
+          name: stocktake
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Stocktake differences posted
+        '403':
+          description: Count creator attempted to approve their own count
+        '409':
+          description: Stock changed since the count snapshot
+  /procurement/overview:
+    get:
+      summary: List scoped requisitions and purchase orders
+      description: Requires procurement.view. Supplier invoices are included only for users with procurement.invoice.manage.
+      responses:
+        '200':
+          description: Procurement queue data in effective branch scope
+  /procurement/requisitions:
+    get:
+      summary: List purchase requisitions
+      description: Requires procurement.view.
+      responses:
+        '200':
+          description: Paginated requisitions
+    post:
+      summary: Submit a purchase requisition
+      description: Requires procurement.manage; creates a pending request for independent review.
+      responses:
+        '201':
+          description: Requisition submitted
+  /procurement/requisitions/{requisition}/decision:
+    patch:
+      summary: Approve or reject a pending requisition
+      description: Requires procurement.approve. Requesters cannot approve their own requests.
+      parameters:
+        - in: path
+          name: requisition
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Requisition decision recorded
+        '403':
+          description: Requester attempted self-approval
+  /procurement/purchase-orders:
+    get:
+      summary: List scoped purchase orders
+      description: Requires procurement.view.
+      responses:
+        '200':
+          description: Paginated purchase orders
+    post:
+      summary: Create a draft purchase order from an approved requisition
+      description: Requires procurement.manage; order products and supplier must match the request.
+      responses:
+        '201':
+          description: Draft purchase order created
+  /procurement/purchase-orders/{purchaseOrder}/approve:
+    post:
+      summary: Approve a draft purchase order
+      description: Requires procurement.approve. The purchase-order creator cannot approve their own order.
+      parameters:
+        - in: path
+          name: purchaseOrder
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Purchase order approved
+        '403':
+          description: Creator attempted self-approval
+  /procurement/purchase-orders/{purchaseOrder}/receive:
+    post:
+      summary: Record partial or complete goods receipt
+      description: Requires procurement.receive. Receipt posts immutable stock movements and enforces batch/expiry requirements.
+      parameters:
+        - in: path
+          name: purchaseOrder
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Goods received note created
+        '409':
+          description: Order state prevents receipt
+  /procurement/purchase-orders/{purchaseOrder}/supplier-invoices:
+    post:
+      summary: Record an invoice matched to a goods receipt
+      description: Requires procurement.invoice.manage. Total must reconcile to received goods valuation; this does not execute payment.
+      parameters:
+        - in: path
+          name: purchaseOrder
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Supplier invoice recorded for accounts payable
+        '422':
+          description: Invoice does not match the received valuation
+  /pos/overview:
+    get:
+      summary: Get the branch POS catalogue, till and recent sales
+      description: Requires pos.view and an assigned branch scope. Product availability is for the selected stock location; service prices are branch-specific and currently KES-only.
+      parameters:
+        - in: query
+          name: branch_id
+          schema:
+            type: integer
+        - in: query
+          name: location_id
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: POS catalogue, active cashier shift, summary and recent sales/shift reconciliations
+        '403':
+          description: Branch is outside the caller's scope
+  /pos/customers:
+    get:
+      summary: Search registered customers at the selected branch
+      description: Requires pos.sale.create. Returns only customer ID, name and phone; patient/clinical fields are excluded.
+      parameters:
+        - in: query
+          name: branch_id
+          required: true
+          schema:
+            type: integer
+        - in: query
+          name: search
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 120
+      responses:
+        '200':
+          description: Matching branch-registered customers
+  /pos/shifts:
+    post:
+      summary: Open a cashier till shift
+      description: Requires pos.shift.manage. Only one open shift per cashier and branch is allowed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [branch_id, terminal_name, opening_float]
+              properties:
+                branch_id: { type: integer }
+                terminal_name: { type: string, maxLength: 80 }
+                opening_float: { type: number, minimum: 0 }
+      responses:
+        '201':
+          description: Till shift opened
+        '409':
+          description: Cashier already has an open shift
+  /pos/shifts/{shift}/cash-movements:
+    post:
+      summary: Record cash in or cash out during an open shift
+      description: Requires pos.shift.manage. Movements are retained for shift reconciliation.
+      parameters:
+        - in: path
+          name: shift
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [movement_type, amount, reason]
+              properties:
+                movement_type: { type: string, enum: [cash_in, cash_out] }
+                amount: { type: number, exclusiveMinimum: 0 }
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        '201':
+          description: Cash movement recorded
+        '409':
+          description: Shift is closed
+  /pos/shifts/{shift}/close:
+    post:
+      summary: Close a till and calculate cash variance
+      description: Requires pos.shift.manage. Expected cash includes opening float, cash tenders/refunds and recorded cash movements.
+      parameters:
+        - in: path
+          name: shift
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [counted_cash]
+              properties:
+                counted_cash: { type: number, minimum: 0 }
+      responses:
+        '200':
+          description: Shift closed with expected cash, counted cash and variance
+  /pos/sales:
+    post:
+      summary: Complete a POS sale
+      description: Requires pos.sale.create and an open shift. Server-priced products/services, exact tender reconciliation, idempotency, append-only stock issue and immutable receipt are committed atomically. Discounts require pos.discount.apply; split tender requires pos.payment.split. Tax and provider settlement are not configured.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [branch_id, location_id, shift_id, idempotency_key, lines, payments]
+              properties:
+                branch_id: { type: integer }
+                location_id: { type: integer }
+                shift_id: { type: integer }
+                idempotency_key: { type: string, minLength: 16, maxLength: 100 }
+                customer_id: { type: integer, nullable: true }
+                customer_name: { type: string, maxLength: 180 }
+                discount_amount: { type: number, minimum: 0 }
+                lines:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required: [item_type, item_id, quantity]
+                    properties:
+                      item_type: { type: string, enum: [product, service] }
+                      item_id: { type: integer }
+                      quantity: { type: number, exclusiveMinimum: 0, multipleOf: 0.001 }
+                payments:
+                  type: array
+                  minItems: 1
+                  maxItems: 3
+                  items:
+                    type: object
+                    required: [tender_type, amount]
+                    properties:
+                      tender_type: { type: string, enum: [cash, mpesa, card] }
+                      amount: { type: number, exclusiveMinimum: 0 }
+                      reference: { type: string, maxLength: 120 }
+      responses:
+        '201':
+          description: Sale, tender, receipt and stock movements recorded
+        '200':
+          description: Idempotent retry returned the existing receipt
+        '403':
+          description: Split tender or discount permission is missing
+        '409':
+          description: Insufficient stock or idempotency key conflict
+  /pos/sales/{sale}/receipt:
+    get:
+      summary: Reprint an immutable receipt
+      description: Requires pos.receipt.view. Each reprint is audited and marked as a copy.
+      parameters:
+        - in: path
+          name: sale
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason, tender_type]
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 1000 }
+                tender_type: { type: string, enum: [cash, mpesa, card] }
+                tender_reference: { type: string, maxLength: 120 }
+      responses:
+        '200':
+          description: Receipt with branch, cashier, item, tender and refund details
+  /pos/sales/{sale}/refund:
+    post:
+      summary: Approve and record a full sale refund
+      description: Requires pos.refund.approve and an open till at the original branch. Original sale remains immutable; original product batches are restored through compensating stock movements.
+      parameters:
+        - in: path
+          name: sale
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason, tender_type]
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 1000 }
+                tender_type: { type: string, enum: [cash, mpesa, card] }
+                tender_reference: { type: string, maxLength: 120 }
+      responses:
+        '201':
+          description: Refund recorded
+        '409':
+          description: Sale already refunded or no till shift is open
+  /pos/sales/{sale}/void:
+    post:
+      summary: Approve a sale void
+      description: Requires pos.sale.void. A void is recorded as a separately audited full reversal and never deletes the original sale.
+      parameters:
+        - in: path
+          name: sale
+          required: true
+          schema: { type: integer }
+      responses:
+        '201':
+          description: Sale voided and stock restored
+        '409':
+          description: Sale is not eligible for void
+  /public/storefront:
+    get:
+      security: []
+      summary: Browse online stores, branches, and published products
+      description: Public catalogue output is limited to active organizations/branches and public products. Available quantities exclude active 15-minute order reservations.
+      parameters:
+        - in: query
+          name: organization_slug
+          schema: { type: string, maxLength: 160 }
+        - in: query
+          name: branch_id
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Store discovery, branch list, or branch catalogue
+        '404':
+          description: Store or branch is unavailable
+  /public/site-content:
+    get:
+      security: []
+      summary: Read a published public website page
+      description: Returns only content published for the active organization. Drafts, archived pages, and pages scheduled for a future date are not exposed.
+      parameters:
+        - in: query
+          name: organization_slug
+          required: true
+          schema: { type: string, maxLength: 160 }
+        - in: query
+          name: slug
+          required: true
+          schema: { type: string, maxLength: 120, pattern: '^[A-Za-z0-9_-]+$' }
+      responses:
+        '200':
+          description: Published page content or a null page when the slug is not published
+        '404':
+          description: Organization is unavailable
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /robots.txt:
+    get:
+      security: []
+      summary: Read generated crawler guidance
+      responses:
+        '200':
+          description: Plain-text robots policy with the configured sitemap URL
+          content:
+            text/plain:
+              schema: { type: string }
+  /sitemap.xml:
+    get:
+      security: []
+      summary: Read the public website sitemap
+      description: Includes active organizations, public website pages, and published CMS pages and journal articles.
+      responses:
+        '200':
+          description: XML sitemap
+          content:
+            application/xml:
+              schema: { type: string }
+  /public/seo/redirect:
+    get:
+      security: []
+      summary: Resolve an organization-scoped public website redirect
+      description: Returns only internal redirects for an active organization. Source and target paths are scoped to that organization's public URL prefix.
+      parameters:
+        - in: query
+          name: organization_slug
+          required: true
+          schema: { type: string, maxLength: 160 }
+        - in: query
+          name: source_path
+          required: true
+          schema: { type: string, maxLength: 255, pattern: '^/[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$' }
+      responses:
+        '200':
+          description: Matching redirect or null when no redirect exists
+        '404':
+          description: Organization is unavailable
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /public/analytics/events:
+    post:
+      security: []
+      summary: Record a consent-gated first-party page view
+      description: Stores a minimal page-view event only when the anonymous visitor has an active analytics consent record. No IP address, user agent, query string, or clinical data is collected. Duplicate event IDs are ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [organization_slug, anonymous_id, event_id, event_name, page_path]
+              properties:
+                organization_slug: { type: string, maxLength: 160 }
+                anonymous_id: { type: string, format: uuid }
+                event_id: { type: string, format: uuid }
+                event_name: { type: string, enum: [page_view] }
+                page_path: { type: string, maxLength: 500, pattern: '^/[A-Za-z0-9_-]*(/[A-Za-z0-9_-]+)*$' }
+      responses:
+        '204':
+          description: Event recorded, ignored because consent was not granted, or safely deduplicated
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /public/journal:
+    get:
+      security: []
+      summary: Read published skincare journal articles
+      description: Returns only published journal pages whose scheduled publication time has arrived.
+      parameters:
+        - in: query
+          name: organization_slug
+          required: true
+          schema: { type: string, maxLength: 160 }
+      responses:
+        '200':
+          description: Published journal articles
+        '404':
+          description: Organization is unavailable
+  /public/reviews:
+    get:
+      security: []
+      summary: Read approved customer reviews
+      description: Returns moderated reviews verified against a completed POS purchase or appointment.
+      parameters:
+        - in: query
+          name: organization_slug
+          required: true
+          schema: { type: string, maxLength: 160 }
+      responses:
+        '200':
+          description: Approved customer reviews
+        '404':
+          description: Organization is unavailable
+  /public/promotions:
+    get:
+      security: []
+      summary: Read active public promotions
+      description: Excludes unpublished, expired, and redemption-limited campaigns.
+      parameters:
+        - in: query
+          name: organization_slug
+          required: true
+          schema: { type: string, maxLength: 160 }
+      responses:
+        '200':
+          description: Active public promotions
+  /public/product-sections:
+    get:
+      security: []
+      summary: Read featured product sections
+      description: Returns active sections containing active, publicly visible products.
+      parameters:
+        - in: query
+          name: organization_slug
+          required: true
+          schema: { type: string, maxLength: 160 }
+      responses:
+        '200':
+          description: Featured sections and products
+  /public/social-links:
+    get:
+      security: []
+      summary: Read public social profile links
+      parameters:
+        - in: query
+          name: organization_slug
+          required: true
+          schema: { type: string, maxLength: 160 }
+      responses:
+        '200':
+          description: Active social profile links
+  /public/newsletter/subscribe:
+    post:
+      security: []
+      summary: Request newsletter subscription
+      description: Sends an email ownership confirmation through the configured Laravel mail transport. A new subscription remains pending and an existing opt-out remains active until the recipient confirms within 24 hours. The response does not disclose whether an address is already subscribed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [organization_slug, email, consent]
+              properties:
+                organization_slug: { type: string, maxLength: 160 }
+                email: { type: string, format: email, maxLength: 255 }
+                consent: { type: boolean, const: true }
+      responses:
+        '202':
+          description: Generic response; a confirmation email is sent when a new confirmation is required
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /public/newsletter/confirm/{token}:
+    get:
+      security: []
+      summary: Show newsletter confirmation page
+      description: Displays a confirmation action without changing subscription state. The recipient must explicitly submit the form.
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        '200':
+          description: Email confirmation form
+    post:
+      security: []
+      summary: Confirm newsletter subscription
+      description: Activates a pending subscription or reactivates an opted-out address only after token confirmation. Confirmation links expire after 24 hours and are single-use.
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        '200':
+          description: Subscription activated
+        '410':
+          description: Confirmation token is invalid, expired, or already used
+  /public/privacy-consent:
+    post:
+      security: []
+      summary: Save analytics and marketing consent choices
+      description: Stores a privacy decision only; no tracking scripts are enabled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [organization_slug, anonymous_id, consent_version, analytics_allowed, marketing_allowed]
+              properties:
+                organization_slug: { type: string, maxLength: 160 }
+                anonymous_id: { type: string, format: uuid }
+                consent_version: { type: string, maxLength: 30 }
+                analytics_allowed: { type: boolean }
+                marketing_allowed: { type: boolean }
+      responses:
+        '200':
+          description: Privacy choices saved
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /public/newsletter/unsubscribe/{token}:
+    post:
+      security: []
+      summary: Unsubscribe using a mailing-provider token
+      description: Idempotently disables a subscription. No unsubscribe token is returned by public signup.
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        '200':
+          description: Subscription inactive
+        '404':
+          description: Subscription token is unknown
+  /website/pages:
+    get:
+      summary: List website content for the current organization
+      description: Requires website.content.view. Drafts are included for authorized workspace users.
+      responses:
+        '200':
+          description: Paginated website pages
+    post:
+      summary: Create a website page draft
+      description: Requires website.content.manage. Page text is plain text and is safely escaped by the public frontend.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug, title]
+              properties:
+                slug: { type: string, maxLength: 120, pattern: '^[A-Za-z0-9_-]+$' }
+                page_type: { type: string, enum: [page, journal] }
+                title: { type: string, maxLength: 180 }
+                eyebrow: { type: [string, 'null'], maxLength: 120 }
+                summary: { type: [string, 'null'], maxLength: 500 }
+                body: { type: [string, 'null'], maxLength: 10000 }
+                seo_title: { type: [string, 'null'], maxLength: 70 }
+                seo_description: { type: [string, 'null'], maxLength: 160 }
+      responses:
+        '201':
+          description: Draft created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /website/pages/{page}:
+    put:
+      summary: Update website page content
+      description: Requires website.content.manage and a page owned by the current organization.
+      parameters:
+        - in: path
+          name: page
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slug, title]
+              properties:
+                slug: { type: string, maxLength: 120, pattern: '^[A-Za-z0-9_-]+$' }
+                page_type: { type: string, enum: [page, journal] }
+                title: { type: string, maxLength: 180 }
+                eyebrow: { type: [string, 'null'], maxLength: 120 }
+                summary: { type: [string, 'null'], maxLength: 500 }
+                body: { type: [string, 'null'], maxLength: 10000 }
+                seo_title: { type: [string, 'null'], maxLength: 70 }
+                seo_description: { type: [string, 'null'], maxLength: 160 }
+      responses:
+        '200':
+          description: Updated website page
+        '404':
+          description: Page is outside the current organization
+  /website/pages/{page}/publication:
+    patch:
+      summary: Publish, schedule, unpublish, or archive a website page
+      description: Requires website.content.publish. A scheduled page is not public until its publication time is reached.
+      parameters:
+        - in: path
+          name: page
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [draft, published, archived] }
+                published_at: { type: [string, 'null'], format: date-time }
+      responses:
+        '200':
+          description: Updated publication status
+        '404':
+          description: Page is outside the current organization
+  /website/pages/{page}/media:
+    post:
+      summary: Upload a website page or journal cover image
+      description: Requires website.content.manage. Accepts JPG, PNG, or WebP images up to 5 MB and stores them on the public media disk.
+      parameters:
+        - in: path
+          name: page
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image: { type: string, format: binary }
+      responses:
+        '200':
+          description: Updated website page with cover_image_url
+        '404':
+          description: Page is outside the current organization
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      summary: Remove a website page or journal cover image
+      description: Requires website.content.manage and a page owned by the current organization.
+      parameters:
+        - in: path
+          name: page
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Updated website page without a cover image
+        '404':
+          description: Page is outside the current organization
+  /website/redirects:
+    get:
+      summary: List public website redirects
+      description: Requires website.content.view. Redirects are scoped to the current organization.
+      responses:
+        '200':
+          description: Organization website redirects
+    post:
+      summary: Create an internal website redirect
+      description: Requires website.content.manage. Paths are relative to the organization's public URL prefix; external destinations and redirect loops are rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source_path, target_path, status_code]
+              properties:
+                source_path: { type: string, maxLength: 255, pattern: '^/[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$' }
+                target_path: { type: string, maxLength: 255, pattern: '^/[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$' }
+                status_code: { type: integer, enum: [301, 302] }
+      responses:
+        '201':
+          description: Redirect created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /website/redirects/{redirect}:
+    delete:
+      summary: Delete a website redirect
+      description: Requires website.content.manage and a redirect owned by the current organization.
+      parameters:
+        - in: path
+          name: redirect
+          required: true
+          schema: { type: integer }
+      responses:
+        '204':
+          description: Redirect removed
+        '404':
+          description: Redirect is outside the current organization
+  /portal/newsletter/unsubscribe:
+    post:
+      summary: Withdraw newsletter consent for the signed-in customer
+      description: Requires an authenticated, verified customer account. Does not expose subscription tokens.
+      responses:
+        '200':
+          description: Consent withdrawal recorded when a matching account subscription exists
+  /portal/rewards:
+    get:
+      summary: Read the signed-in customer's rewards balance and ledger
+      description: Requires an authenticated, verified account linked to a customer.
+      responses:
+        '200':
+          description: Active programme, customer account, and recent ledger entries
+        '403':
+          description: Account has no linked customer profile
+  /portal/review-eligible:
+    get:
+      summary: List completed purchases and visits eligible for review
+      description: Only completed POS sales and completed appointments for the signed-in customer are returned.
+      responses:
+        '200':
+          description: Eligible products and services
+        '403':
+          description: Account has no linked customer profile
+  /portal/reviews:
+    post:
+      summary: Submit a verified product or service review
+      description: Requires a completed purchase or visit. New reviews remain pending until staff moderation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, source_id, rating, review_text]
+              properties:
+                kind: { type: string, enum: [product, service] }
+                source_id: { type: integer }
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                review_text: { type: string, minLength: 10, maxLength: 2000 }
+                display_name: { type: [string, 'null'], maxLength: 120 }
+                display_name_consent: { type: boolean }
+      responses:
+        '201':
+          description: Verified review submitted for moderation
+        '403':
+          description: No matching completed purchase or visit
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /website/loyalty:
+    get:
+      summary: Read loyalty programme and organization account reporting
+      description: Requires loyalty.manage permission.
+      responses:
+        '200':
+          description: Programme, customer balances, and recent ledger entries
+  /website/loyalty/program:
+    put:
+      summary: Configure loyalty earning, redemption, and tier rules
+      description: Requires loyalty.manage permission. Points accrue from eligible completed POS sales only.
+      responses:
+        '200':
+          description: Programme settings saved
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /website/loyalty/adjustments:
+    post:
+      summary: Record an audited staff loyalty adjustment
+      description: Requires loyalty.adjust permission and a reason; adjustments are ledger entries.
+      responses:
+        '200':
+          description: Adjustment recorded
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /website/reviews:
+    get:
+      summary: List organization reviews for moderation
+      description: Requires website.reviews.manage permission.
+      responses:
+        '200':
+          description: Paginated customer reviews
+  /website/reviews/{review}:
+    patch:
+      summary: Approve, reject, hide, or feature a verified review
+      description: Requires website.reviews.manage permission. Only approved reviews are public.
+      parameters:
+        - in: path
+          name: review
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Review moderation saved
+        '404':
+          description: Review is outside the current organization
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /website/product-sections:
+    get:
+      summary: List organization product sections
+      description: Requires website.merchandising.manage permission.
+      responses:
+        '200':
+          description: Product sections and ordered product identifiers
+    put:
+      summary: Save a featured product section and its product order
+      description: Requires website.merchandising.manage permission. Products must belong to the same organization.
+      responses:
+        '200':
+          description: Product section saved
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /website/products:
+    get:
+      summary: List organization products available for merchandising
+      description: Requires website.merchandising.manage permission.
+      responses:
+        '200':
+          description: Active organization products
+  /website/promotions:
+    get:
+      summary: List organization promotions
+      description: Requires website.marketing.manage permission.
+      responses:
+        '200':
+          description: Paginated promotion records
+    post:
+      summary: Create a promotion or coupon campaign
+      description: Requires website.marketing.manage permission. Coupon code and discount fields must be configured together.
+      responses:
+        '201':
+          description: Promotion created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /website/promotions/{promotion}:
+    put:
+      summary: Update an organization promotion
+      description: Requires website.marketing.manage permission.
+      parameters:
+        - in: path
+          name: promotion
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Promotion updated
+        '404':
+          description: Promotion is outside the current organization
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /website/social-links:
+    get:
+      summary: List organization social profile links
+      description: Requires website.social.manage permission.
+      responses:
+        '200':
+          description: Configured social links
+    put:
+      summary: Update organization social profile links
+      description: Requires website.social.manage permission. This configures outbound links, not social-network publishing.
+      responses:
+        '200':
+          description: Social links saved
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /public/storefront/register:
+    post:
+      security: []
+      summary: Register a customer portal account
+      description: Creates a customer account and sends email verification. Verified email is required before checkout.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [organization_slug, branch_id, name, email, password]
+              properties:
+                organization_slug: { type: string, maxLength: 160 }
+                branch_id: { type: integer }
+                name: { type: string, maxLength: 255 }
+                email: { type: string, format: email }
+                phone: { type: [string, 'null'], maxLength: 40 }
+                password: { type: string, minLength: 8 }
+      responses:
+        '201':
+          description: Customer account created; verify email before checkout
+        '409':
+          description: Email is already linked to a user or customer profile
+  /portal/orders:
+    get:
+      summary: List the current customer's orders
+      description: Requires an authenticated, verified customer with ecommerce.orders.view_own. Returns only orders belonging to the caller.
+      responses:
+        '200':
+          description: Customer order history
+    post:
+      summary: Create an online order and reserve stock
+      description: Requires an authenticated, verified customer account. Prices are server-calculated; stock reservations expire after 15 minutes. The order can only be fulfilled after a payment provider confirms settlement.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [organization_slug, branch_id, fulfillment_type, idempotency_key, lines]
+              properties:
+                organization_slug: { type: string, maxLength: 160 }
+                branch_id: { type: integer }
+                fulfillment_type: { type: string, enum: [collection, delivery] }
+                delivery_recipient: { type: string, maxLength: 180 }
+                delivery_phone: { type: string, maxLength: 40 }
+                delivery_address_line1: { type: string, maxLength: 255 }
+                delivery_address_line2: { type: string, maxLength: 255 }
+                delivery_city: { type: string, maxLength: 120 }
+                delivery_instructions: { type: string, maxLength: 500 }
+                customer_note: { type: string, maxLength: 1000 }
+                idempotency_key: { type: string, minLength: 16, maxLength: 100 }
+                lines:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    required: [product_id, quantity]
+                    properties:
+                      product_id: { type: integer }
+                      quantity: { type: number, exclusiveMinimum: 0 }
+      responses:
+        '201':
+          description: Order created with reservation expiry and payment-required handoff
+        '403':
+          description: Account is not verified, not a customer, or belongs to another organization
+        '409':
+          description: Stock unavailable or idempotency key reused for a different order
+  /portal/payment-options:
+    get:
+      summary: List payment methods configured for the store
+      description: Requires an authenticated account. Provider credentials remain server-side; the response exposes only each method's availability.
+      responses:
+        '200':
+          description: KES payment methods and configured flags
+  /portal/orders/{order}/payments:
+    post:
+      summary: Start an idempotent M-Pesa or Pesapal payment
+      description: Requires the current customer's own pending order. Pesapal uses a hosted checkout; M-Pesa uses a Daraja STK Push. Client redirects and callback payloads are not trusted as payment confirmation.
+      parameters:
+        - in: path
+          name: order
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, idempotency_key]
+              properties:
+                provider: { type: string, enum: [mpesa, pesapal] }
+                phone: { type: string, maxLength: 40, description: Required for M-Pesa STK Push }
+                idempotency_key: { type: string, minLength: 16, maxLength: 100 }
+      responses:
+        '201':
+          description: Payment initiated; hosted redirect URL is present for card checkout
+        '409':
+          description: Order is no longer eligible for payment or idempotency key conflicts
+        '503':
+          description: Provider credentials or endpoints are not configured
+  /portal/orders/{order}/payment-status:
+    get:
+      summary: Read and refresh provider-verified payment status
+      description: Requires the current customer's own order. Pending provider status is rechecked server-side; browser state is never treated as proof of payment.
+      parameters:
+        - in: path
+          name: order
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Order and latest payment status
+        '404':
+          description: Order does not belong to the current customer
+  /portal/orders/{order}/cancel:
+    post:
+      summary: Cancel the current customer's unpaid order
+      parameters:
+        - in: path
+          name: order
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Order cancelled and reservation released
+        '404':
+          description: Order does not belong to the current customer
+        '409':
+          description: Order is no longer eligible for customer cancellation
+  /portal/orders/{order}/return-request:
+    post:
+      summary: Request a return for an eligible completed order
+      parameters:
+        - in: path
+          name: order
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        '202':
+          description: Return request recorded for staff review
+        '409':
+          description: Order is not completed and paid or a request already exists
+  /payments/pesapal/callback:
+    get:
+      security: []
+      summary: Receive Pesapal browser return
+      description: Requires provider transaction references. The server verifies status with Pesapal before redirecting the browser to the configured public frontend.
+      responses:
+        '302':
+          description: Redirect to the public frontend after provider verification
+        '503':
+          description: Provider verification is temporarily unavailable; retry the callback
+  /payments/pesapal/ipn:
+    get:
+      security: []
+      summary: Receive Pesapal IPN notification
+      description: Idempotently verifies transaction status directly with Pesapal before updating an order.
+      responses:
+        '200':
+          description: Notification handled or safely recognized as duplicate
+        '503':
+          description: Provider verification is temporarily unavailable; provider may retry
+  /payments/mpesa/callback:
+    post:
+      security: []
+      summary: Receive Daraja STK callback
+      description: Callback data is correlated to a stored checkout and checked with Daraja before payment state changes.
+      responses:
+        '200':
+          description: Callback verified or safely recognized as duplicate
+        '503':
+          description: Provider verification is temporarily unavailable; callback can be retried
+  /payments/reconciliation:
+    get:
+      summary: List branch-scoped payment transactions for reconciliation
+      description: Requires payments.reconcile. Results include transaction state and any settlement record.
+      responses:
+        '200':
+          description: Latest 200 payment transactions in permitted branches
+  /payments/reconciliation/{transaction}/settlement:
+    post:
+      summary: Record a provider settlement against a clearing account
+      description: Requires payments.reconcile and a provider-confirmed payment. Settlement amount plus provider fee is compared with the expected transaction amount; variances are retained for review.
+      parameters:
+        - in: path
+          name: transaction
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [statement_reference, settled_amount, clearing_account_code, settled_at]
+              properties:
+                statement_reference: { type: string, maxLength: 160 }
+                settled_amount: { type: number, minimum: 0 }
+                fee_amount: { type: number, minimum: 0, default: 0 }
+                clearing_account_code: { type: string, maxLength: 80 }
+                settled_at: { type: string, format: date-time }
+      responses:
+        '201':
+          description: Settlement record created as matched or variance
+        '409':
+          description: Payment is not provider-confirmed or is already reconciled
+  /accounting/overview:
+    get:
+      summary: Read the scoped accounting workspace
+      description: Requires accounting.view. Returns organization accounts and rules with branch-scoped journals and pending source events.
+      responses:
+        '200':
+          description: Chart of accounts, source mappings, periods, journals, and pending source events
+  /accounting/accounts:
+    post:
+      summary: Add an organization ledger account
+      description: Requires accounting.manage. Account codes are unique within the organization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name, account_type]
+              properties:
+                code: { type: string, maxLength: 40 }
+                name: { type: string, maxLength: 160 }
+                account_type: { type: string, enum: [asset, liability, equity, income, expense] }
+                currency_code: { type: [string, 'null'], minLength: 3, maxLength: 3 }
+                parent_id: { type: [integer, 'null'] }
+      responses:
+        '201':
+          description: Ledger account created
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /accounting/posting-rules:
+    put:
+      summary: Configure automatic source debit and credit accounts
+      description: Requires accounting.manage. Saving a rule retries pending source events of the same type.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event_type, debit_account_id, credit_account_id]
+              properties:
+                event_type: { type: string }
+                debit_account_id: { type: integer }
+                credit_account_id: { type: integer }
+                is_active: { type: boolean, default: true }
+      responses:
+        '200':
+          description: Existing source mapping updated
+        '201':
+          description: Source mapping created
+  /accounting/periods:
+    post:
+      summary: Open a non-overlapping accounting period
+      description: Requires accounting.manage.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, starts_on, ends_on]
+              properties:
+                name: { type: string, maxLength: 100 }
+                starts_on: { type: string, format: date }
+                ends_on: { type: string, format: date }
+      responses:
+        '201':
+          description: Accounting period opened
+        '422':
+          description: Dates overlap an existing period
+  /accounting/periods/{period}/close:
+    post:
+      summary: Close an accounting period
+      description: Requires accounting.period.close. Closing is rejected while source events are pending or manual journals remain in draft.
+      parameters:
+        - in: path
+          name: period
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Period closed
+        '409':
+          description: Period has pending source postings or draft journals
+  /accounting/journals:
+    post:
+      summary: Create a balanced manual journal draft
+      description: Requires accounting.manage and an open accounting period. A separate authorized checker must post it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [journal_date, currency_code, memo, lines]
+              properties:
+                branch_id: { type: [integer, 'null'] }
+                journal_date: { type: string, format: date }
+                currency_code: { type: string, minLength: 3, maxLength: 3 }
+                memo: { type: string, maxLength: 500 }
+                lines:
+                  type: array
+                  minItems: 2
+                  items:
+                    type: object
+                    required: [account_id, debit_amount, credit_amount]
+                    properties:
+                      account_id: { type: integer }
+                      debit_amount: { type: number, minimum: 0 }
+                      credit_amount: { type: number, minimum: 0 }
+                      description: { type: [string, 'null'], maxLength: 255 }
+      responses:
+        '201':
+          description: Balanced journal draft created
+        '409':
+          description: Journal date is outside an open period
+  /accounting/journals/{journal}/post:
+    post:
+      summary: Approve and post a manual journal
+      description: Requires accounting.approve. The journal creator cannot approve their own entry.
+      parameters:
+        - in: path
+          name: journal
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Journal posted and immutable
+        '403':
+          description: Maker-checker separation was violated
+  /accounting/journals/{journal}/reverse:
+    post:
+      summary: Reverse a posted manual journal
+      description: Requires accounting.approve. Creates a linked opposite journal in an open period without modifying posted lines.
+      parameters:
+        - in: path
+          name: journal
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reversal_date, reason]
+              properties:
+                reversal_date: { type: string, format: date }
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        '201':
+          description: Reversal journal created and posted
+  /accounting/source-events/{event}/retry:
+    post:
+      summary: Retry a pending accounting source event
+      description: Requires accounting.manage. Posts only when the event mapping and an open period are configured.
+      parameters:
+        - in: path
+          name: event
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Source event posted
+        '409':
+          description: Source event remains pending
+  /accounting/reports:
+    get:
+      summary: Run a branch-scoped accounting report
+      description: Requires accounting.view. Balance sheet includes all posted activity through the end date; trial balance and profit-and-loss use the requested date range. Totals are grouped by currency and are never combined across currencies.
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: report
+          schema: { type: string, enum: [trial-balance, profit-and-loss, balance-sheet] }
+      responses:
+        '200':
+          description: Account totals and debit/credit balances
+  /ecommerce/orders:
+    get:
+      summary: List branch-scoped online orders
+      description: Requires ecommerce.orders.view. Results are limited to the caller's organization and effective branch scope.
+      responses:
+        '200':
+          description: Online orders for fulfilment review
+  /ecommerce/orders/{order}/fulfillment:
+    patch:
+      summary: Update an online order's fulfilment state
+      description: Requires ecommerce.orders.manage. Any transition other than cancellation requires confirmed payment.
+      parameters:
+        - in: path
+          name: order
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [processing, ready_for_collection, dispatched, completed, cancelled] }
+      responses:
+        '200':
+          description: Order state updated
+        '409':
+          description: Transition is not allowed or payment is not confirmed
+  /ecommerce/orders/{order}/return-decision:
+    post:
+      summary: Approve or reject a return request
+      description: Requires ecommerce.returns.manage. Approval queues a refund decision; it does not perform or reconcile a payment-provider refund.
+      parameters:
+        - in: path
+          name: order
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+      responses:
+        '200':
+          description: Return decision recorded
+        '409':
+          description: No pending return request exists
+  /inventory/products/{product}/online-visibility:
+    patch:
+      summary: Publish or unpublish a product in the online catalogue
+      description: Requires inventory.manage and an organization-owned product.
+      parameters:
+        - in: path
+          name: product
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [is_public]
+              properties:
+                is_public: { type: boolean }
+      responses:
+        '200':
+          description: Product online visibility updated
+        '404':
+          description: Product is outside the caller's organization
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum token
+  parameters:
+    OrganizationId:
+      in: path
+      name: organization
+      required: true
+      schema:
+        type: integer
+    BranchId:
+      in: path
+      name: branch
+      required: true
+      schema:
+        type: integer
+    DepartmentId:
+      in: path
+      name: department
+      required: true
+      schema:
+        type: integer
+    CustomerId:
+      in: path
+      name: customer
+      required: true
+      schema:
+        type: integer
+    ConsentId:
+      in: path
+      name: consent
+      required: true
+      schema:
+        type: integer
+  responses:
+    NotFound:
+      description: Resource not found
+    ValidationError:
+      description: Request validation failed
+  schemas:
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        email_verified_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        customer_id:
+          type:
+            - integer
+            - 'null'
+        organization_id:
+          type:
+            - integer
+            - 'null'
+        branch_id:
+          type:
+            - integer
+            - 'null'
+        is_active:
+          type: boolean
+        password_reset_required:
+          type: boolean
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        branch_assignments:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+    ApiSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        last_used_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        current:
+          type: boolean
+    Organization:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        business_type:
+          type:
+            - string
+            - 'null'
+        country_code:
+          type:
+            - string
+            - 'null'
+        currency_code:
+          type:
+            - string
+            - 'null'
+        timezone:
+          type:
+            - string
+            - 'null'
+        status:
+          type: string
+        email:
+          type:
+            - string
+            - 'null'
+        phone:
+          type:
+            - string
+            - 'null'
+        address:
+          type:
+            - string
+            - 'null'
+        city:
+          type:
+            - string
+            - 'null'
+        registration_number:
+          type:
+            - string
+            - 'null'
+        metadata:
+          type:
+            - object
+            - 'null'
+        is_active:
+          type: boolean
+      required:
+        - id
+        - name
+        - slug
+    OrganizationInput:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        business_type:
+          type:
+            - string
+            - 'null'
+        country_code:
+          type:
+            - string
+            - 'null'
+        currency_code:
+          type:
+            - string
+            - 'null'
+        timezone:
+          type:
+            - string
+            - 'null'
+        status:
+          type: string
+        email:
+          type:
+            - string
+            - 'null'
+        phone:
+          type:
+            - string
+            - 'null'
+        address:
+          type:
+            - string
+            - 'null'
+        city:
+          type:
+            - string
+            - 'null'
+        registration_number:
+          type:
+            - string
+            - 'null'
+        metadata:
+          type:
+            - object
+            - 'null'
+        is_active:
+          type: boolean
+    Branch:
+      type: object
+      properties:
+        id:
+          type: integer
+        organization_id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        city:
+          type:
+            - string
+            - 'null'
+        country:
+          type:
+            - string
+            - 'null'
+        timezone:
+          type:
+            - string
+            - 'null'
+        status:
+          type: string
+        email:
+          type:
+            - string
+            - 'null'
+        phone:
+          type:
+            - string
+            - 'null'
+        address:
+          type:
+            - string
+            - 'null'
+        latitude:
+          type:
+            - number
+            - 'null'
+        longitude:
+          type:
+            - number
+            - 'null'
+        metadata:
+          type:
+            - object
+            - 'null'
+        is_active:
+          type: boolean
+      required:
+        - id
+        - organization_id
+        - name
+        - code
+    BranchInput:
+      type: object
+      properties:
+        organization_id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        city:
+          type:
+            - string
+            - 'null'
+        country:
+          type:
+            - string
+            - 'null'
+        timezone:
+          type:
+            - string
+            - 'null'
+        status:
+          type: string
+        email:
+          type:
+            - string
+            - 'null'
+        phone:
+          type:
+            - string
+            - 'null'
+        address:
+          type:
+            - string
+            - 'null'
+        latitude:
+          type:
+            - number
+            - 'null'
+        longitude:
+          type:
+            - number
+            - 'null'
+        metadata:
+          type:
+            - object
+            - 'null'
+        is_active:
+          type: boolean
+    Department:
+      type: object
+      properties:
+        id:
+          type: integer
+        organization_id:
+          type: integer
+        branch_id:
+          type:
+            - integer
+            - 'null'
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type:
+            - string
+            - 'null'
+        status:
+          type: string
+        is_active:
+          type: boolean
+        metadata:
+          type:
+            - object
+            - 'null'
+      required:
+        - id
+        - organization_id
+        - name
+        - code
+    DepartmentInput:
+      type: object
+      properties:
+        organization_id:
+          type: integer
+        branch_id:
+          type:
+            - integer
+            - 'null'
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type:
+            - string
+            - 'null'
+        status:
+          type: string
+        is_active:
+          type: boolean
+        metadata:
+          type:
+            - object
+            - 'null'

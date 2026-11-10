@@ -1,0 +1,18 @@
+name,category,classification,description,duration_minutes,buffer_minutes,required_qualifications,required_resource_types,is_active
+Initial Skin Consultation,Skin Consultations,clinical,"Assessment of skin concerns and skincare needs.",30,0,,,yes
+Follow-up Consultation,Skin Consultations,clinical,"Review of progress and skincare recommendations.",30,0,,,yes
+Personalized Skincare Routine,Skin Consultations,clinical,"Development of an individualized skincare routine.",30,0,,,yes
+Comprehensive Skin Assessment,Skin Consultations,clinical,"Detailed assessment and recommended care plan.",30,0,,,yes
+Digital Skin Analysis,Digital Skin Analysis,aesthetic,"Digital assessment of visible skin characteristics.",30,0,,,yes
+Skin Analysis + Consultation,Digital Skin Analysis,aesthetic,"Digital analysis combined with professional consultation.",30,0,,,yes
+Skin Progress Assessment,Digital Skin Analysis,aesthetic,"Follow-up assessment of visible skin changes.",30,0,,,yes
+Basic Facial,Facial Treatments,beauty,"Cleansing and skin-refreshing treatment.",60,0,,,yes
+Deep Cleansing Facial,Facial Treatments,beauty,"Focused cleansing and removal of surface impurities.",60,0,,,yes
+Acne-Focused Facial,Facial Treatments,beauty,"Facial treatment tailored to acne-prone skin.",60,0,,,yes
+Hydrating Facial,Facial Treatments,beauty,"Treatment focused on skin hydration.",60,0,,,yes
+Brightening Facial,Facial Treatments,beauty,"Treatment focused on improving the appearance of uneven skin tone.",60,0,,,yes
+Rejuvenating Facial,Facial Treatments,beauty,"Treatment focused on improving the appearance of aging or tired skin.",60,0,,,yes
+Customized Facial,Facial Treatments,beauty,"Treatment selected according to individual skin needs.",60,0,,,yes
+Personalized Skin Rejuvenation,Skin Rejuvenation & Medical Aesthetics,aesthetic,"Customized skin appearance improvement session.",60,0,,,yes
+Specialized Skin Treatment,Skin Rejuvenation & Medical Aesthetics,aesthetic,"Treatment selected following professional assessment.",60,0,,,yes
+Personalized Treatment Plan,Skin Rejuvenation & Medical Aesthetics,aesthetic,"Recommended treatment programme based on skin needs.",60,0,,,yes

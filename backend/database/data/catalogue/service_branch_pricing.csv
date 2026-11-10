@@ -1,0 +1,35 @@
+service,branch_code,price,currency_code,is_available,is_public,deposit_policy,deposit_amount,booking_lead_hours,cancellation_notice_hours
+Initial Skin Consultation,NWB,1500.00,KES,yes,yes,pay_at_clinic,0,0,24
+Initial Skin Consultation,KSB,1500.00,KES,yes,yes,pay_at_clinic,0,0,24
+Follow-up Consultation,NWB,800.00,KES,yes,yes,pay_at_clinic,0,0,24
+Follow-up Consultation,KSB,800.00,KES,yes,yes,pay_at_clinic,0,0,24
+Personalized Skincare Routine,NWB,1000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Personalized Skincare Routine,KSB,1000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Comprehensive Skin Assessment,NWB,2000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Comprehensive Skin Assessment,KSB,2000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Digital Skin Analysis,NWB,1000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Digital Skin Analysis,KSB,1000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Skin Analysis + Consultation,NWB,2000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Skin Analysis + Consultation,KSB,2000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Skin Progress Assessment,NWB,1000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Skin Progress Assessment,KSB,1000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Basic Facial,NWB,2500.00,KES,yes,yes,pay_at_clinic,0,0,24
+Basic Facial,KSB,2500.00,KES,yes,yes,pay_at_clinic,0,0,24
+Deep Cleansing Facial,NWB,3000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Deep Cleansing Facial,KSB,3000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Acne-Focused Facial,NWB,3500.00,KES,yes,yes,pay_at_clinic,0,0,24
+Acne-Focused Facial,KSB,3500.00,KES,yes,yes,pay_at_clinic,0,0,24
+Hydrating Facial,NWB,3000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Hydrating Facial,KSB,3000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Brightening Facial,NWB,3500.00,KES,yes,yes,pay_at_clinic,0,0,24
+Brightening Facial,KSB,3500.00,KES,yes,yes,pay_at_clinic,0,0,24
+Rejuvenating Facial,NWB,4500.00,KES,yes,yes,pay_at_clinic,0,0,24
+Rejuvenating Facial,KSB,4500.00,KES,yes,yes,pay_at_clinic,0,0,24
+Customized Facial,NWB,4000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Customized Facial,KSB,4000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Personalized Skin Rejuvenation,NWB,4500.00,KES,yes,yes,pay_at_clinic,0,0,24
+Personalized Skin Rejuvenation,KSB,4500.00,KES,yes,yes,pay_at_clinic,0,0,24
+Specialized Skin Treatment,NWB,4000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Specialized Skin Treatment,KSB,4000.00,KES,yes,yes,pay_at_clinic,0,0,24
+Personalized Treatment Plan,NWB,1500.00,KES,yes,yes,pay_at_clinic,0,0,24
+Personalized Treatment Plan,KSB,1500.00,KES,yes,yes,pay_at_clinic,0,0,24

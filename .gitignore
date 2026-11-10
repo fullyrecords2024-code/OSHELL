@@ -1,0 +1,17 @@
+# === Secrets & credentials — never commit ===
+# Environment files (the .env.example files are kept on purpose)
+**/.env
+**/.env.*
+!**/.env.example
+
+# Plaintext credentials file
+backend/passwords.txt
+
+# === Deployment scratch folder ===
+# Local deployment working area: tokens, build artifacts (.tar.gz),
+# debug/screenshot scripts, and credentials. Not source code.
+.deploy/
+
+# === OS / editor cruft ===
+.DS_Store
+Thumbs.db

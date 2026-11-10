@@ -1,0 +1,27 @@
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews
+    </IfModule>
+
+    Options -Indexes
+    DirectoryIndex index.html index.php
+    RewriteEngine On
+    RewriteBase /
+
+    # Laravel API, health check, and generated SEO endpoints
+    RewriteRule ^api(/.*)?$ index.php [L,QSA]
+    RewriteRule ^up$ index.php [L,QSA]
+    RewriteRule ^robots\.txt$ index.php [L,QSA]
+    RewriteRule ^sitemap\.xml$ index.php [L,QSA]
+
+    # Serve public uploads through Laravel; the host does not follow docroot symlinks
+    RewriteRule ^storage(/.*)?$ index.php [L,QSA]
+
+    # Serve existing assets directly
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # SPA fallback for public site and staff routes
+    RewriteRule ^ index.html [L]
+</IfModule>
